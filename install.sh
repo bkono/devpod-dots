@@ -44,6 +44,50 @@ mise use -g gemini-cli -y
 echo "Linking dotfiles..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
+link_item() {
+  local src="$1"
+  local dst="$2"
+
+  # Check if already linked
+  if [ -L "$dst" ]; then
+    local currentSrc="$(readlink -f "$dst")"
+    local absSrc="$(readlink -f "$src")"
+    if [ "$currentSrc" == "$absSrc" ]; then
+      echo "$(basename "$src") is already linked. Skipping"
+      return
+    fi
+  fi
+
+  if [ -d "$src" ]; then
+    # If the target exists and is a directory, we descend one level
+    if [ -d "$dst" ] && [ ! -L "$dst" ]; then
+      for child in "$src"/*; do
+        [ -e "$child" ] || continue # skip empty dir
+        child_name=$(basename "$child")
+        link_item "$child" "$dst/$child_name"
+      done
+    else
+      # Handle the case where dst doesn't exist or is a file/symlink
+      if [ -e "$dst" ] || [ -L "$dst" ]; then
+        backup="$dst.backup.$(date +%Y%m%d%H%M%S)"
+        echo "Moving existing $dst to $backup..."
+        mv "$dst" "$backup"
+      fi
+      ln -s "$src" "$dst"
+      echo "Linked $(basename "$src") → $dst"
+    fi
+  else
+    # Regular file or symlink
+    if [ -e "$dst" ] || [ -L "$dst" ]; then
+      backup="$dst.backup.$(date +%Y%m%d%H%M%S)"
+      echo "Moving existing $dst to $backup..."
+      mv "$dst" "$backup"
+    fi
+    ln -s "$src" "$dst"
+    echo "Linked $(basename "$src") → $dst"
+  fi
+}
+
 for item in "$SCRIPT_DIR"/*; do
   name=$(basename "$item")
   # Skip self (the install script)
@@ -51,13 +95,5 @@ for item in "$SCRIPT_DIR"/*; do
 
   target="$HOME/$name"
 
-  # If there's already something at the target, move it aside
-  if [ -e "$target" ] || [ -L "$target" ]; then
-    backup="$target.backup.$(date +%Y%m%d%H%M%S)"
-    echo "Moving existing $target to $backup..."
-    mv "$target" "$backup"
-  fi
-
-  ln -s "$item" "$target"
-  echo "Linked $name → $target"
+  link_item "$item" "$target"
 done
