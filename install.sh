@@ -15,6 +15,8 @@ if ! command -v $miseCmd &>/dev/null; then
   $miseCmd settings set experimental true
 fi
 
+$miseCmd trust
+
 echo "Ensuring node and npm is installed..."
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "node and/or npm not found. Installing Node.js..."
