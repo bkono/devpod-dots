@@ -16,29 +16,30 @@ if ! command -v $miseCmd &>/dev/null; then
 fi
 
 $miseCmd trust
+eval "$($miseCmd activate bash)"
 
 echo "Ensuring node and npm is installed..."
 if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   echo "node and/or npm not found. Installing Node.js..."
-  $miseCmd use -g node@lts
-  $miseCmd use -g pnpm@latest
+  mise use -g node@lts
+  mise use -g pnpm@latest
 fi
 
 echo "Installing cli tools..."
-$miseCmd use -g delta -y
-$miseCmd use -g eza -y
-$miseCmd use -g bat -y
-$miseCmd use -g ripgrep -y
-$miseCmd use -g fzf -y
-$miseCmd use -g zoxide -y
-$miseCmd use -g starship -y
-$miseCmd use -g github-cli -y
-$miseCmd use -g lazygit -y
+mise use -g delta -y
+mise use -g eza -y
+mise use -g bat -y
+mise use -g ripgrep -y
+mise use -g fzf -y
+mise use -g zoxide -y
+mise use -g starship -y
+mise use -g github-cli -y
+mise use -g lazygit -y
 
 echo "Installing coding agents..."
-$miseCmd use -g claude -y
-$miseCmd use -g codex -y
-$miseCmd use -g gemini-cli -y
+mise use -g claude -y
+mise use -g codex -y
+mise use -g gemini-cli -y
 
 echo "Linking dotfiles..."
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
