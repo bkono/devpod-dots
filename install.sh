@@ -45,9 +45,79 @@ echo "Linking dotfiles..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 echo "DEBUG: SCRIPT_DIR is: $SCRIPT_DIR"
 
+# Merge credential section from existing gitconfig into source gitconfig
+merge_gitconfig_credentials() {
+  local src="$1"
+  local dst="$2"
+
+  # Only process if both files exist and destination is not a symlink
+  if [ ! -f "$src" ] || [ ! -f "$dst" ] || [ -L "$dst" ]; then
+    return 0
+  fi
+
+  # Check if existing gitconfig has a credential section
+  if ! git config -f "$dst" --get-regexp "^credential\." >/dev/null 2>&1 && \
+     ! grep -q "^\[credential" "$dst" 2>/dev/null; then
+    return 0
+  fi
+
+  echo "Found existing [credential] section in $dst, merging into $src..."
+
+  # Create temp file for credential section
+  local temp_cred_file
+  temp_cred_file=$(mktemp /tmp/gitconfig_credential_XXXXXX) || {
+    echo "Error: Failed to create temporary file for credential section" >&2
+    return 1
+  }
+
+  # Extract the credential section from existing file
+  # This awk script extracts from [credential] to the next [section] or end of file
+  if ! awk '
+    /^\[credential/ { in_credential=1; print; next }
+    in_credential && /^\[/ { in_credential=0 }
+    in_credential { print }
+    END { if (in_credential) print "" }
+  ' "$dst" > "$temp_cred_file" 2>/dev/null; then
+    echo "Warning: Failed to extract credential section from $dst" >&2
+    rm -f "$temp_cred_file"
+    return 0  # Continue with normal linking despite the warning
+  fi
+
+  # Only proceed if we extracted something
+  if [ ! -s "$temp_cred_file" ]; then
+    rm -f "$temp_cred_file"
+    return 0
+  fi
+
+  # Only append if source doesn't already have credential section
+  if grep -q "^\[credential" "$src" 2>/dev/null; then
+    echo "Source file already has [credential] section, skipping merge"
+    rm -f "$temp_cred_file"
+    return 0
+  fi
+
+  # Append credential section to source file
+  if ! { echo "" >> "$src" && cat "$temp_cred_file" >> "$src"; } 2>/dev/null; then
+    echo "Error: Failed to append credential section to $src" >&2
+    rm -f "$temp_cred_file"
+    return 1
+  fi
+
+  echo "Merged [credential] section into $src"
+  rm -f "$temp_cred_file"
+  return 0
+}
+
 link_item() {
   local src="$1"
   local dst="$2"
+
+  # Special handling for .gitconfig
+  if [ "$(basename "$src")" = ".gitconfig" ]; then
+    if ! merge_gitconfig_credentials "$src" "$dst"; then
+      return 1
+    fi
+  fi
 
   # Check if already linked
   if [ -L "$dst" ]; then
