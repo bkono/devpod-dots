@@ -42,7 +42,8 @@ mise use -g codex -y
 mise use -g gemini-cli -y
 
 echo "Linking dotfiles..."
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+echo "DEBUG: SCRIPT_DIR is: $SCRIPT_DIR"
 
 link_item() {
   local src="$1"
@@ -88,10 +89,12 @@ link_item() {
   fi
 }
 
+shopt -s dotglob
 for item in "$SCRIPT_DIR"/*; do
   name=$(basename "$item")
-  # Skip self (the install script)
+  # Skip self (the install script) and .git directory
   [ "$name" = "install.sh" ] && continue
+  [ "$name" = ".git" ] && continue
 
   target="$HOME/$name"
 
