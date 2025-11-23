@@ -40,6 +40,8 @@ echo "Installing coding agents..."
 mise use -g claude -y
 mise use -g codex -y
 mise use -g gemini-cli -y
+mise use -g code -y
+mise use -g opencode -y
 
 echo "Linking dotfiles..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
