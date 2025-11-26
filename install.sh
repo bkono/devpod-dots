@@ -1,4 +1,60 @@
 #!/usr/bin/env bash
+set -euo pipefail
+
+run_as_root() {
+  if [ "$(id -u)" -eq 0 ]; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
+install_zsh_if_needed() {
+  if command -v zsh >/dev/null 2>&1; then
+    echo "zsh already present"
+    return
+  fi
+
+  echo "zsh not found, installing…"
+  if command -v apt-get >/dev/null 2>&1; then
+    run_as_root apt-get update
+    run_as_root DEBIAN_FRONTEND=noninteractive apt-get install -y zsh
+  elif command -v apk >/dev/null 2>&1; then
+    run_as_root apk add --no-cache zsh
+  elif command -v dnf >/dev/null 2>&1; then
+    run_as_root dnf install -y zsh
+  elif command -v yum >/dev/null 2>&1; then
+    run_as_root yum install -y zsh
+  elif command -v pacman >/dev/null 2>&1; then
+    run_as_root pacman -Sy --noconfirm zsh
+  else
+    echo "No supported package manager found for automatic zsh install" >&2
+    exit 1
+  fi
+}
+
+set_default_shell() {
+  local zsh_path
+  zsh_path="$(command -v zsh)"
+  [ -n "$zsh_path" ] || return 1
+
+  if ! grep -qx "$zsh_path" /etc/shells; then
+    echo "Adding $zsh_path to /etc/shells"
+    printf "%s\n" "$zsh_path" | run_as_root tee -a /etc/shells >/dev/null
+  fi
+
+  local target_user="${SUDO_USER:-$USER}"
+  local current_shell
+  current_shell="$(getent passwd "$target_user" | cut -d: -f7)"
+
+  if [ "$current_shell" != "$zsh_path" ]; then
+    echo "Setting $target_user default shell to $zsh_path"
+    run_as_root chsh -s "$zsh_path" "$target_user"
+  fi
+}
+
+install_zsh_if_needed
+set_default_shell
 
 echo "Ensuring zgenom is installed"
 if [ ! -d "${HOME}/.zgenom" ]; then
