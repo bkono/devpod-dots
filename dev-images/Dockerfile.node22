@@ -1,0 +1,30 @@
+FROM node:22-bookworm
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    SHELL=/usr/bin/zsh
+
+# Base packages and sudo for non-root setup
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends zsh sudo git curl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Allow the node user to escalate for the install script without prompts
+RUN echo "node ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/node \
+ && chmod 0440 /etc/sudoers.d/node
+
+WORKDIR /opt/devpod-dots
+COPY . .
+
+# Prepare repository ownership for node user usage
+RUN chown -R node:node /opt/devpod-dots
+
+# Run the dotfiles installer for root first
+RUN ./install.sh
+
+# Then set up the node user with the same dotfiles and tooling
+USER node
+ENV HOME=/home/node
+RUN ./install.sh
+
+# Default to zsh for interactive shells
+CMD ["zsh"]
