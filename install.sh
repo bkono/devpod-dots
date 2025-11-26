@@ -4,9 +4,22 @@ set -euo pipefail
 run_as_root() {
   if [ "$(id -u)" -eq 0 ]; then
     "$@"
-  else
-    sudo "$@"
+    return
   fi
+
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+    return
+  fi
+
+  if command -v doas >/dev/null 2>&1; then
+    doas "$@"
+    return
+  fi
+
+  echo "Unable to escalate privileges for: $*" >&2
+  echo "Please re-run this script as root or install sudo/doas." >&2
+  exit 1
 }
 
 install_zsh_if_needed() {
@@ -18,7 +31,7 @@ install_zsh_if_needed() {
   echo "zsh not found, installing…"
   if command -v apt-get >/dev/null 2>&1; then
     run_as_root apt-get update
-    run_as_root DEBIAN_FRONTEND=noninteractive apt-get install -y zsh
+    run_as_root apt-get install -y zsh
   elif command -v apk >/dev/null 2>&1; then
     run_as_root apk add --no-cache zsh
   elif command -v dnf >/dev/null 2>&1; then
@@ -43,7 +56,10 @@ set_default_shell() {
     printf "%s\n" "$zsh_path" | run_as_root tee -a /etc/shells >/dev/null
   fi
 
-  local target_user="${SUDO_USER:-$USER}"
+  local target_user="${SUDO_USER:-${USER:-}}"
+  if [ -z "$target_user" ]; then
+    target_user="$(id -un)"
+  fi
   local current_shell
   current_shell="$(getent passwd "$target_user" | cut -d: -f7)"
 
